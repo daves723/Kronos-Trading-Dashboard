@@ -1,0 +1,9 @@
+version: "3.8"
+services:
+  kronos-dashboard:
+    build: .
+    ports:
+      - "3456:3456"
+    volumes:
+      - ./kronos_weights:/app/kronos_weights
+    restart: unless-stopped

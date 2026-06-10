@@ -1,0 +1,50 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+      
+      - name: Download Kronos weights
+        run: |
+          python -c "from huggingface_hub import snapshot_download; snapshot_download('NeoQuasar/Kronos-small', local_dir='kronos_weights/models--NeoQuasar--Kronos-small'); snapshot_download('NeoQuasar/Kronos-Tokenizer-base', local_dir='kronos_weights/models--NeoQuasar--Kronos-Tokenizer-base')"
+      
+      - name: Build EXE
+        run: pyinstaller agent.spec --distpath . --workpath ./build --noconfirm
+      
+      - name: Package portable
+        run: |
+          mkdir dist_pkg
+          copy TradingAgent.exe dist_pkg\
+          xcopy /E /I kronos_weights dist_pkg\kronos_weights
+          echo @echo off > dist_pkg\??.bat
+          echo cd /d "%%~dp0" >> dist_pkg\??.bat
+          echo start "" TradingAgent.exe >> dist_pkg\??.bat
+          echo timeout /t 3 /nobreak ^>nul >> dist_pkg\??.bat
+          echo start http://localhost:3456 >> dist_pkg\??.bat
+      
+      - name: Create ZIP
+        run: Compress-Archive -Path dist_pkg\* -DestinationPath TradingAgent_portable.zip
+      
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: TradingAgent_portable.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
