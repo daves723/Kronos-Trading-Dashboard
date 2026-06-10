@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kronos 多维度分析</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:#0f1117;color:#e4e4e7;min-height:100vh}
+.landing{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh}
+.landing.hidden{display:none}
+.landing .logo{font-size:56px;margin-bottom:10px}
+.landing .title{font-size:32px;font-weight:800;background:linear-gradient(135deg,#60a5fa,#a78bfa,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.landing .subtitle{font-size:14px;color:#52525b;margin-bottom:36px;text-align:center;line-height:1.6}
+.landing .search-wrap{position:relative;width:480px;max-width:90vw}
+.landing .search-wrap input{width:100%;padding:14px 20px;border-radius:14px;border:2px solid #2a2d3a;background:#1a1d27;color:#e4e4e7;font-size:16px;outline:none;transition:all .3s}
+.landing .search-wrap input:focus{border-color:#6366f1;box-shadow:0 0 30px rgba(99,102,241,.15)}
+.landing .search-wrap input::placeholder{color:#52525b}
+.landing .search-results{position:absolute;top:100%;left:0;right:0;background:#1a1d27;border:1px solid #2a2d3a;border-radius:12px;max-height:260px;overflow-y:auto;display:none;z-index:200;margin-top:6px}
+.landing .search-results div{padding:12px 16px;cursor:pointer;border-bottom:1px solid #252836;font-size:14px;transition:background .2s}
+.landing .search-results div:hover{background:#252836}
+.landing .search-results div .n{color:#e4e4e7;font-weight:600}
+.landing .search-results div .c{color:#52525b;margin-left:10px;font-size:12px}
+.landing .hint{margin-top:24px;font-size:12px;color:#3a3d4a}
+.result{display:none;padding:16px 24px 40px;max-width:1200px;margin:0 auto}
+.result.show{display:block}
+.topbar{display:flex;align-items:center;gap:14px;padding:14px 0;margin-bottom:16px;border-bottom:1px solid #1a1d27;position:sticky;top:0;background:#0f1117;z-index:50}
+.topbar .back-btn{background:#252836;border:1px solid #2a2d3a;color:#a1a1aa;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:13px}
+.topbar .back-btn:hover{background:#3a3d4a;color:#fff}
+.topbar .si{display:flex;align-items:center;gap:10px}
+.topbar .si .n{font-size:20px;font-weight:700}
+.topbar .si .c{color:#71717a;font-size:13px}
+.topbar .si .p{font-size:22px;font-weight:700}
+.topbar .si .chg{font-size:13px;padding:2px 8px;border-radius:4px}
+.chg-up{color:#22c55e;background:rgba(34,197,94,.1)}
+.chg-down{color:#ef4444;background:rgba(239,68,68,.1)}
+.chg-zero{color:#a1a1aa;background:rgba(161,161,170,.1)}
+.card{background:#1a1d27;border:1px solid #2a2d3a;border-radius:12px;padding:20px;margin-bottom:16px}
+.card h3{font-size:14px;font-weight:700;margin-bottom:16px;color:#a1a1aa;text-transform:uppercase;letter-spacing:1px}
+.chart-container{width:100%;height:480px}
+.agents-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.agent-card{background:#252836;border-radius:10px;padding:14px 16px;border-left:4px solid #3a3d4a}
+.agent-card.bullish{border-left-color:#22c55e;background:linear-gradient(135deg,#1a2a1d 0%,#252836 100%)}
+.agent-card.bearish{border-left-color:#ef4444;background:linear-gradient(135deg,#2a1a1d 0%,#252836 100%)}
+.agent-card.neutral{border-left-color:#eab308;background:linear-gradient(135deg,#2a2a1d 0%,#252836 100%)}
+.agent-card .an{font-size:13px;font-weight:700;color:#a1a1aa;margin-bottom:8px}
+.agent-card .as{font-size:12px;font-weight:700;margin-bottom:8px}
+.agent-card .ar{font-size:12px;color:#a1a1aa;line-height:1.8}
+.verdict-box{padding:16px;border-radius:10px;text-align:center;font-weight:700;font-size:16px;margin-bottom:16px}
+.verdict-box.bullish{background:rgba(34,197,94,.08);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
+.verdict-box.bearish{background:rgba(239,68,68,.08);color:#ef4444;border:1px solid rgba(239,68,68,.2)}
+.verdict-box.neutral{background:rgba(234,179,8,.08);color:#eab308;border:1px solid rgba(234,179,8,.2)}
+.pred-note{font-size:11px;color:#f59e0b;text-align:center;margin-top:10px;opacity:.7}
+@media(max-width:1024px){.agents-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.agents-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="landing" id="landing">
+  <div class="logo">📊</div>
+  <div class="title">Kronos AI 多维度分析</div>
+  <div class="subtitle">6Agent共识决策 + Kronos四段预测(10/20/60/120日)<br>支持全A股沪深北+科创+创业板 5281只标的</div>
+  <div class="search-wrap">
+    <input type="text" id="srch" placeholder="输入代码或名称: 第一创业 / 600030 / 禾川" autocomplete="off" autofocus>
+    <div class="search-results" id="sres"></div>
+  </div>
+  <div class="hint">按 Enter 开始分析 | 模型: Kronos-small 24.7M</div>
+</div>
+<div class="result" id="result">
+  <div class="topbar">
+    <button class="back-btn" onclick="back()">← 返回</button>
+    <div class="si" id="sh"></div>
+  </div>
+  <div class="card">
+    <h3>\u1F4C8 K线趋势 · 120日 + 四段预测</h3>
+    <div class="chart-container" id="kc"></div>
+    <div class="pred-note" id="pl"></div>
+  </div>
+  <div class="verdict-box neutral" id="vb">等待分析...</div>
+  <div class="agents-grid" id="ag"></div>
+</div>
+<script>
+var BASE="";
+var kc=echarts.init(document.getElementById("kc"));
+var st;
+document.getElementById("srch").addEventListener("input",function(){
+  clearTimeout(st);
+  var q=this.value.trim();
+  if(q.length<1){document.getElementById("sres").style.display="none";return}
+  st=setTimeout(function(){
+    fetch(BASE+"/api/search?q="+encodeURIComponent(q)).then(function(r){return r.json()}).then(function(d){
+      var div=document.getElementById("sres");div.innerHTML="";
+      if(d.results&&d.results.length){
+        d.results.forEach(function(r){
+          var el=document.createElement("div");
+          el.innerHTML='<span class="n">'+r.name+'</span><span class="c">'+r.code+'</span>';
+          el.onclick=function(){document.getElementById("srch").value=r.name;div.style.display="none";go(r.code)};
+          div.appendChild(el);
+        });
+        div.style.display="block";
+      }
+    });
+  },200);
+});
+document.addEventListener("click",function(e){if(!e.target.closest(".search-wrap"))document.getElementById("sres").style.display="none"});
+document.getElementById("srch").addEventListener("keydown",function(e){
+  if(e.key==="Enter"){
+    document.getElementById("sres").style.display="none";
+    var q=this.value.trim();
+    if(!q)return;
+    fetch(BASE+"/api/search?q="+encodeURIComponent(q)).then(function(r){return r.json()}).then(function(d){
+      if(d.results&&d.results.length)go(d.results[0].code);else go(q);
+    });
+  }
+});
+function go(code){document.getElementById("landing").classList.add("hidden");document.getElementById("result").classList.add("show");loadChart(code);loadAgents(code);setTimeout(function(){kc.resize()},200);window.scrollTo(0,0)}
+function back(){document.getElementById("landing").classList.remove("hidden");document.getElementById("result").classList.remove("show");document.getElementById("srch").value="";document.getElementById("srch").focus()}
+function loadChart(code){
+  fetch(BASE+"/api/chart?code="+encodeURIComponent(code)).then(function(r){return r.json()}).then(function(d){
+    if(d.error)return;
+    var candles=d.candles;if(!candles||candles.length<2)return;
+    var lp=d.price,pc=candles[candles.length-2][2],chg=(lp/pc-1)*100,cls=chg>0?"chg-up":chg<0?"chg-down":"chg-zero";
+    document.getElementById("sh").innerHTML='<span class="n">'+d.name+'</span><span class="c">'+d.code+'</span><span class="p">'+lp+'</span><span class="chg '+cls+'">'+(chg>0?"+":"")+chg.toFixed(2)+'%</span><span style="font-size:11px;color:#71717a">波幅'+d.volatility+'%</span>';
+    var dates=candles.map(function(c){return c[0]}),ohlc=candles.map(function(c){return[c[1],c[2],c[3],c[4]]}),vols=candles.map(function(c){return c[5]});
+    var predDates=[],segSeries=[];
+    if(d.segments){
+      var colors={"10":"#f59e0b","20":"#8b5cf6","60":"#06b6d4","120":"#ec4899"};
+      var names={"10":"10日预测","20":"20日预测","60":"60日预测","120":"120日预测"};
+      var order=["120","60","20","10"];
+      var base120=d.segments["120"];
+      predDates=base120?base120.dates:[];
+      order.forEach(function(k){
+        var seg=d.segments[k];
+        if(!seg||!seg.predictions)return;
+        var arr=[];
+        for(var i=0;i<dates.length;i++)arr.push(null);
+        for(var j=0;j<seg.predictions.length;j++)arr.push(seg.predictions[j]);
+        segSeries.push({type:"line",name:names[k],data:arr,lineStyle:{color:colors[k],type:"solid",width:k==="10"?3:k==="20"?2.5:2},symbol:"none"});
+      });
+      document.getElementById("pl").textContent="\u1F916 Kronos预测 | 金黄=10日 紫色=20日 青色=60日 粉色=120日";
+    }else if(d.predictions){
+      predDates=d.pred_dates||[];
+      var lc=candles[candles.length-1][2];
+      segSeries.push({type:"line",name:"预测",data:Array(dates.length-1).fill(null).concat([lc]).concat(d.predictions),lineStyle:{color:"#f59e0b",type:"dashed",width:2},symbol:"none"});
+    }
+    var xData=dates.concat(predDates);
+    var series=[{type:"candlestick",data:ohlc,itemStyle:{color:"#ef4444",color0:"#22c55e",borderColor:"#ef4444",borderColor0:"#22c55e"}},{type:"bar",data:vols,xAxisIndex:1,yAxisIndex:1,itemStyle:{color:function(p){return ohlc[p.dataIndex][1]>ohlc[p.dataIndex][0]?"rgba(239,68,68,.4)":"rgba(34,197,94,.4)"}}}];
+    series=series.concat(segSeries);
+    kc.setOption({backgroundColor:"transparent",grid:[{left:"8%",right:"3%",top:"10%",height:"55%"},{left:"8%",right:"3%",top:"75%",height:"18%"}],xAxis:[{type:"category",data:xData,axisLine:{lineStyle:{color:"#2a2d3a"}},axisLabel:{color:"#71717a",fontSize:9}},{type:"category",data:xData,gridIndex:1,axisLabel:{show:false},axisLine:{lineStyle:{color:"#2a2d3a"}}}],yAxis:[{type:"value",scale:true,splitLine:{lineStyle:{color:"#252836"}},axisLabel:{color:"#71717a",fontSize:10}},{type:"value",gridIndex:1,scale:true,splitLine:{show:false},axisLabel:{color:"#71717a",fontSize:10}}],series:series,tooltip:{trigger:"axis",axisPointer:{type:"cross"}}},true);
+  }).catch(function(e){console.error(e)});
+}
+function loadAgents(code){
+  var grid=document.getElementById("ag"),vb=document.getElementById("vb");
+  grid.innerHTML='<div style="padding:30px;color:#71717a;text-align:center;grid-column:1/-1">分析中...</div>';
+  fetch(BASE+"/api/analyze?code="+encodeURIComponent(code)).then(function(r){return r.json()}).then(function(d){
+    if(d.error||!d.agents){grid.innerHTML='<div style="padding:20px;color:#ef4444;text-align:center;grid-column:1/-1">分析失败</div>';return}
+    grid.innerHTML="";
+    d.agents.forEach(function(a){
+      var el=document.createElement("div");el.className="agent-card "+a.signal;
+      el.innerHTML='<div class="an">'+a.name+'</div><div class="as">'+(a.signal==="bullish"?"\u1F7E2 看多":a.signal==="bearish"?"\u1F534 看空":"\u1F7E1 中性")+' · 信心'+a.confidence+'%</div><div class="ar">'+a.reasons.join("<br>")+'</div>';
+      grid.appendChild(el);
+    });
+    vb.className="verdict-box "+d.verdict;vb.textContent=d.verdict_text;
+  });
+}
+window.addEventListener("resize",function(){kc.resize()});
+</script>
+</body>
+</html>

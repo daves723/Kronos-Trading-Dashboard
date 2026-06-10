@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+build/
+dist/
+*.spec
+
+# Kronos model weights (too large, download separately)
+kronos_weights/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Secrets
+tushare_token.txt
+.env
+*.token
+
+# Output
+TradingAgent.exe
+*.zip
