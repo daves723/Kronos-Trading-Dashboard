@@ -121,30 +121,34 @@ function loadChart(code){
     if(d.error)return;
     var candles=d.candles;if(!candles||candles.length<2)return;
     var lp=d.price,pc=candles[candles.length-2][2],chg=(lp/pc-1)*100,cls=chg>0?"chg-up":chg<0?"chg-down":"chg-zero";
-    document.getElementById("sh").innerHTML='<span class="n">'+d.name+'</span><span class="c">'+d.code+'</span><span class="p">'+lp+'</span><span class="chg '+cls+'">'+(chg>0?"+":"")+chg.toFixed(2)+'%</span><span style="font-size:11px;color:#71717a">波幅'+d.volatility+'%</span>';
+    document.getElementById("sh").innerHTML='<span class="n">'+d.name+'</span><span class="c">'+d.code+'</span><span class="p">'+lp+'</span><span class="chg '+cls+'">'+(chg>0?"+":"")+chg.toFixed(2)+'%</span>';
     var dates=candles.map(function(c){return c[0]}),ohlc=candles.map(function(c){return[c[1],c[2],c[3],c[4]]}),vols=candles.map(function(c){return c[5]});
-    var predDates=[],segSeries=[];
+    var segSeries=[];
     if(d.segments){
       var colors={"10":"#f59e0b","20":"#8b5cf6","60":"#06b6d4","120":"#ec4899"};
-      var names={"10":"10日预测","20":"20日预测","60":"60日预测","120":"120日预测"};
       var order=["120","60","20","10"];
-      var base120=d.segments["120"];
-      predDates=base120?base120.dates:[];
+      var maxLen=0,allPreds={};
       order.forEach(function(k){
         var seg=d.segments[k];
         if(!seg||!seg.predictions)return;
-        var arr=[];
-        for(var i=0;i<dates.length;i++)arr.push(null);
-        for(var j=0;j<seg.predictions.length;j++)arr.push(seg.predictions[j]);
-        segSeries.push({type:"line",name:names[k],data:arr,lineStyle:{color:colors[k],type:"solid",width:k==="10"?3:k==="20"?2.5:2},symbol:"none"});
+        allPreds[k]=seg.predictions;
+        if(seg.predictions.length>maxLen)maxLen=seg.predictions.length;
       });
-      document.getElementById("pl").textContent="\u1F916 Kronos预测 | 金黄=10日 紫色=20日 青色=60日 粉色=120日";
-    }else if(d.predictions){
-      predDates=d.pred_dates||[];
-      var lc=candles[candles.length-1][2];
-      segSeries.push({type:"line",name:"预测",data:Array(dates.length-1).fill(null).concat([lc]).concat(d.predictions),lineStyle:{color:"#f59e0b",type:"dashed",width:2},symbol:"none"});
+      if(maxLen>0){
+        var baseSeg=d.segments["120"]||d.segments["60"]||d.segments["20"]||d.segments["10"];
+        var predDates=baseSeg?baseSeg.dates:[];
+        order.forEach(function(k){
+          var preds=allPreds[k];
+          if(!preds)return;
+          var arr=[];
+          for(var i=0;i<dates.length;i++)arr.push(null);
+          for(var j=0;j<preds.length;j++)arr.push(preds[j]);
+          segSeries.push({type:"line",name:k+"day",data:arr,lineStyle:{color:colors[k],type:"solid",width:k==="10"?3:k==="20"?2.5:2},symbol:"none"});
+        });
+        document.getElementById("pl").innerHTML='<span style="color:#f59e0b">10day</span> <span style="color:#8b5cf6">20day</span> <span style="color:#06b6d4">60day</span> <span style="color:#ec4899">120day</span> Kronos Prediction';
+      }
     }
-    var xData=dates.concat(predDates);
+    var xData=dates.concat(predDates||[]);
     var series=[{type:"candlestick",data:ohlc,itemStyle:{color:"#ef4444",color0:"#22c55e",borderColor:"#ef4444",borderColor0:"#22c55e"}},{type:"bar",data:vols,xAxisIndex:1,yAxisIndex:1,itemStyle:{color:function(p){return ohlc[p.dataIndex][1]>ohlc[p.dataIndex][0]?"rgba(239,68,68,.4)":"rgba(34,197,94,.4)"}}}];
     series=series.concat(segSeries);
     kc.setOption({backgroundColor:"transparent",grid:[{left:"8%",right:"3%",top:"10%",height:"55%"},{left:"8%",right:"3%",top:"75%",height:"18%"}],xAxis:[{type:"category",data:xData,axisLine:{lineStyle:{color:"#2a2d3a"}},axisLabel:{color:"#71717a",fontSize:9}},{type:"category",data:xData,gridIndex:1,axisLabel:{show:false},axisLine:{lineStyle:{color:"#2a2d3a"}}}],yAxis:[{type:"value",scale:true,splitLine:{lineStyle:{color:"#252836"}},axisLabel:{color:"#71717a",fontSize:10}},{type:"value",gridIndex:1,scale:true,splitLine:{show:false},axisLabel:{color:"#71717a",fontSize:10}}],series:series,tooltip:{trigger:"axis",axisPointer:{type:"cross"}}},true);
@@ -158,7 +162,7 @@ function loadAgents(code){
     grid.innerHTML="";
     d.agents.forEach(function(a){
       var el=document.createElement("div");el.className="agent-card "+a.signal;
-      el.innerHTML='<div class="an">'+a.name+'</div><div class="as">'+(a.signal==="bullish"?"\u1F7E2 看多":a.signal==="bearish"?"\u1F534 看空":"\u1F7E1 中性")+' · 信心'+a.confidence+'%</div><div class="ar">'+a.reasons.join("<br>")+'</div>';
+      el.innerHTML='<div class="an">'+a.name+'</div><div class="as" style="color:'+(a.signal==="bullish"?"#22c55e":a.signal==="bearish"?"#ef4444":"#eab308")+'">'+(a.signal==="bullish"?"[BUY]":a.signal==="bearish"?"[SELL]":"[HOLD]")+' 信心'+a.confidence+'%</div><div class="ar">'+a.reasons.join("<br>")+'</div>';
       grid.appendChild(el);
     });
     vb.className="verdict-box "+d.verdict;vb.textContent=d.verdict_text;

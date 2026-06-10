@@ -24,20 +24,24 @@ def get_tencent_kline(code, days=600):
 
 def kronos_predict_segments(df_all, pred_lens):
     try:
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "kronos_local"))
+        import os as _os
+        _base = _os.path.dirname(_os.path.abspath(__file__))
+        _kp = _os.path.join(_base, "kronos_local")
+        if _kp not in sys.path:
+            sys.path.insert(0, _kp)
         from kronos.model.kronos import Kronos, KronosTokenizer, KronosPredictor
         
-        weights = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kronos_weights")
-        tok_dir = os.path.join(weights, "models--NeoQuasar--Kronos-Tokenizer-base", "snapshots")
-        md_dir = os.path.join(weights, "models--NeoQuasar--Kronos-small", "snapshots")
+        _wt = _os.path.join(_base, "kronos_weights")
+        _td = _os.path.join(_wt, "models--NeoQuasar--Kronos-Tokenizer-base", "snapshots")
+        _md = _os.path.join(_wt, "models--NeoQuasar--Kronos-small", "snapshots")
         
         tok_path = md_path = None
-        for d in os.listdir(tok_dir):
-            p = os.path.join(tok_dir, d)
-            if os.path.isdir(p) and os.path.exists(os.path.join(p,"model.safetensors")): tok_path = p; break
-        for d in os.listdir(md_dir):
-            p = os.path.join(md_dir, d)
-            if os.path.isdir(p) and os.path.exists(os.path.join(p,"model.safetensors")): md_path = p; break
+        for d in _os.listdir(_td):
+            p = _os.path.join(_td, d)
+            if _os.path.isdir(p) and _os.path.exists(_os.path.join(p, "model.safetensors")): tok_path = p; break
+        for d in _os.listdir(_md):
+            p = _os.path.join(_md, d)
+            if _os.path.isdir(p) and _os.path.exists(_os.path.join(p, "model.safetensors")): md_path = p; break
         if not tok_path or not md_path: return None
         
         tok = KronosTokenizer.from_pretrained(tok_path, map_location="cpu")
@@ -58,8 +62,11 @@ def kronos_predict_segments(df_all, pred_lens):
                 lower.append(round(float(row["low"]), 2))
             results[str(pl)] = {"predictions": predictions, "dates": pred_dates, "upper": upper, "lower": lower}
         return results
-    except: return None
-
+    except Exception as e:
+        import traceback as _tb
+        print("[KRONOS_FAIL]", str(e), file=sys.stderr)
+        _tb.print_exc(file=sys.stderr)
+        return None
 def trend_fallback(closes, pred_lens):
     from datetime import datetime, timedelta
     ma5 = np.mean(closes[-5:])

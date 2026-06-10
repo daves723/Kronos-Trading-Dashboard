@@ -30,16 +30,32 @@ def call_search(q):
     return out2 if out2 else json.dumps({"results":[]})
 
 def call_chart(code):
-    f = io.StringIO()
-    with contextlib.redirect_stdout(f):
-        bridge_chart.get_chart(code)
-    return f.getvalue().strip()
-
+    import subprocess, json as _json
+    python_exe = r"C:\Users\Admin\AppData\Local\Programs\Python\Python312\python.exe"
+    script = os.path.join(ROOT, "bridge_chart.py")
+    try:
+        result = subprocess.run([python_exe, script, code], capture_output=True, text=True, cwd=ROOT, timeout=60)
+        for line in result.stdout.split("\n"):
+            line = line.strip()
+            if line.startswith("{"):
+                d = _json.loads(line)
+                # Override with correct model name
+                if "segments" in d and d["segments"]:
+                    d["model"] = "Kronos-small"
+                return _json.dumps(d, ensure_ascii=False)
+        return _json.dumps({"error": "no json in output"})
+    except Exception as e:
+        return _json.dumps({"error": str(e)})
 def call_agent(code):
     f = io.StringIO()
     with contextlib.redirect_stdout(f):
         bridge_agent_v4.analyze(code)
-    return f.getvalue().strip()
+    raw = f.getvalue().strip()
+    for line in raw.split(chr(10)):
+        line = line.strip()
+        if line.startswith('{'):
+            return line
+    return raw
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -86,7 +102,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     with open(os.path.join(ROOT, "index.html"), "rb") as f:
                         self.wfile.write(f.read())
         except Exception as e:
-            self.send_header("Content-Type", "application/json; charset=utf-8")
+            try:
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":str(e)}).encode("utf-8"))
+            except:
+                self.send_header("Content-Type", "application/json; charset=utf-8")
             self.end_headers()
             self.wfile.write(json.dumps({"error":str(e)}).encode("utf-8"))
 
