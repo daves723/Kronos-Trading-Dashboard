@@ -1,4 +1,4 @@
-﻿# Kronos 证券技术分析师（中短线）
+﻿# Kronos A股技术分析
 
 基于 Kronos K线大模型 + 6-Agent 多维分析的 A 股技术面分析仪表盘。
 
